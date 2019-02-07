@@ -13,7 +13,7 @@ While AwaP and IC should be considered together in the analysis of walkable acce
 The base requirement for the calculation of these measures is a layer of urban blocks drawn as polygons, or closed polylines. Lines within the blocks, such as lot subdivisions, will be ignored. However other errors in the urban blocks layer may not be recognised by the software, and may lead to errors, or long processing times. As both AwaP and IC are calculated in metres, a projected coordinate system should be used in the QGIS project. Instead of the very common WGS84 - EPSG:4326 which uses degrees as a unit for distance, the projected WGS84/Pseudo-Mercator - EPSG:3857 which measures distances in metres may be used.
 
 # AwaP tool
-[Download plugin zip](./figures/AwaP%201-0.zip)
+[Download plugin zip](./awap.zip)
 
 It takes in several parameters in order to calculate AwaP:
 - *Blocks layer* - A layer containing the urban blocks for which AwaP will be calculated. This layer can have polygon geometries, or linear geometries where outlines of urban blocks are represented as closed polylines.
