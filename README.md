@@ -11,7 +11,7 @@ While AwaP and IC should be considered together in the analysis of walkable acce
 The base requirement for the calculation of these measures is a layer of urban blocks drawn as polygons, or closed polylines. Lines within the blocks, such as lot subdivisions, will be ignored. However other errors in the urban blocks layer may not be recognised by the software, and may lead to errors, or long processing times. As both AwaP and IC are calculated in metres, a projected coordinate system should be used in the QGIS project. Instead of the very common WGS84 - EPSG:4326 which uses degrees as a unit for distance, the projected WGS84/Pseudo-Mercator - EPSG:3857 which measures distances in metres may be used.
 
 # AwaP tool
-[Download plugin zip](./AwaP%201-0.zip)
+[Download plugin zip](./figures/AwaP%201-0.zip)
 
 It takes in several parameters in order to calculate AwaP:
 - *Blocks layer* - A layer containing the urban blocks for which AwaP will be calculated. This layer can have polygon geometries, or linear geometries where outlines of urban blocks are represented as closed polylines.
@@ -19,7 +19,7 @@ It takes in several parameters in order to calculate AwaP:
 - *Blocks intersecting boundary* - A parameter that specifies whether to consider the urban blocks which are only partly within the area of interest. The default option is to include a block if more than half of the block is within the study boundary. See section below for further detail.
 - *Dead-end removal* - A parameter that specifies if the dead-end streets should be removed from blocks prior to calculating AwaP, and the maximum width of the dead-end streets to be removed. The default value of 40m should work for most urban morphologies.
 
-![AwaP GUI](./AwaP-gui.png)
+![AwaP GUI](./figures/AwaP-gui.png)
 
 Figure 1: AwaP plugin interface
 
@@ -29,7 +29,7 @@ Whether the blocks which are partly inside and partly outside of the area of int
 - *Always include* - All the blocks that are at least partly within the area of interest will be included in the AwaP calculation (Figure 2b).
 - *Always exclude* - Only the blocks that are entirely within the area of interest will be included in the AwaP calculation (Figure 2c).
 
-![AwaP-frame](./AwaP-frame.png)
+![AwaP-frame](./figures/AwaP-frame.png)
 
 Figure 2: Examples of the urban blocks included in the AwaP calculation (dark red) when using different settings for blocks intersecting the study area boundary (black line).
 
@@ -49,7 +49,7 @@ The IC tool requires the following parameters to be set (Figure 3):
   Regardless of which option has been used for selecting the starting point, when the plugin is run, the current coordinates present in these fields will be used to define the starting point for IC calculation.
 - *Maximum walking distance* - The distance a pedestrian can walk in the IC calculation. The default value is 400 metres, frequently used in urban planning as average walking distance.
 
-![IC GUI](./IC-gui.png)
+![IC GUI](./figures/IC-gui.png)
 
 Figure 3: IC plugin intefrace
 
