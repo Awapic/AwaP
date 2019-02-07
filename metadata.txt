@@ -1,0 +1,39 @@
+# This file contains metadata for your plugin. Since 
+# version 2.0 of QGIS this is the proper way to supply 
+# information about a plugin. The old method of 
+# embedding metadata in __init__.py will 
+# is no longer supported since version 2.0.
+
+# This file should be included when you package your plugin.# Mandatory items:
+
+[general]
+name=AwaP
+qgisMinimumVersion=3.0
+description= This plugin takes in outlines of urban blocks and the boundary of area of interest, and calculates area-weighted average parameter (AwaP)
+version=1.0
+author=Ivan Majic
+email=imajicos@gmail.com
+
+about=This plugin calculates area-weighted average perimeter (AwaP) of urban blocks within the defined area. The tool removes dead-end streets up to a specified maximum street width. This method was first presented in Pafka E. and Dovey K. (2017), Permeability and interface catchment: measuring and mapping walkable access (https://www.tandfonline.com/doi/abs/10.1080/17549175.2016.1220413).
+
+tracker=https://github.com/Awapic/AwaP-IC/issues
+repository=https://github.com/Awapic/AwaP-IC
+# End of mandatory metadata
+
+# Recommended items:
+
+# Uncomment the following line and add your changelog:
+# changelog=
+
+# Tags are comma separated with spaces allowed
+tags=permeability, urban morphology, street network
+
+homepage=https://github.com/Awapic/AwaP-IC
+category=Plugins
+icon=icon.png
+# experimental flag
+experimental=False
+
+# deprecated flag (applies to the whole plugin, not just a single version)
+deprecated=False
+
