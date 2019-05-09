@@ -10,7 +10,7 @@
 name=AwaP
 qgisMinimumVersion=3.0
 description= This plugin takes in outlines of urban blocks and the boundary of area of interest, and calculates area-weighted average parameter (AwaP)
-version=1.0
+version=1.1
 author=Ivan Majic
 email=imajicos@gmail.com
 
