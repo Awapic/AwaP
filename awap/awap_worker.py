@@ -23,7 +23,7 @@ class AwaPWorker(QgsTask):
 
     # layerPrint = pyqtSignal('QgsMapLayerType', str, str, dict)
     layerPrint = pyqtSignal(QgsVectorLayer,  dict)
-    layerPrintStyled = pyqtSignal(QgsVectorLayer)
+    layerPrintStyled = pyqtSignal(QgsVectorLayer, str)
     # logSignal = pyqtSignal(str)
 
 
@@ -47,7 +47,20 @@ class AwaPWorker(QgsTask):
 
         self.log('Started task "%s"' %self.description())
 
+        # Note if the layers will be styled with a custom color map or not
+        # This will determine the function in the main thread where the
+        # resulting layers will be returned
         self.styleResultingLayers = self.parent.dlg.checkBox_6.isChecked()
+
+        # Does the user want to color layers by Area, Perimeter or AwaP?
+        # [3:] removes the characters 'by ' from the string
+        self.colorby = self.parent.dlg.comboBox.currentText()[3:]
+
+        # Note if the custom coloring option is set to by AwaP because in
+        # this case the resulting layer will contain grid cells instead of
+        # blocks
+        self.colorByAwap =  self.parent.dlg.checkBox_6.isChecked() and \
+            self.parent.dlg.comboBox.currentIndex() == 2
 
         # THIS IS WHERE I GET THE PARAMETERS FROM THE PLUGIN DIALOG
         self.blocks_layer = self.parent.dlg.mMapLayerComboBox.currentLayer()
@@ -429,11 +442,12 @@ class AwaPWorker(QgsTask):
                             # Finally, keep incrementing (summing) num & denum
                             numerator_sumPxA += P * A
                             denominator_sumA += A
-                            print("Area:", block_geom.area())
+                            # print("Area:", block_geom.area())
 
                             i += 1
 
             if denominator_sumA:
+                # todo round 2
                 AwaP = numerator_sumPxA / denominator_sumA
             else:
                 AwaP = 0
@@ -458,7 +472,13 @@ class AwaPWorker(QgsTask):
             self.final_blocks_layer.updateFields()
             self.final_blocks_layer.setName('AwaP_' + str(int(round(AwaP,0))))
 
-            return self.final_blocks_layer
+            res = {
+                'AwaP result blocks layer' : self.final_blocks_layer,
+                'AwaP' : AwaP,
+            }
+
+            return res
+
 
         if self.boundary_option_single:
             self.boundary_layer = processing.run(
@@ -469,14 +489,50 @@ class AwaPWorker(QgsTask):
                 }
             )['OUTPUT']
 
-        self.resulting_layers = []
-        for boundary in self.boundary_layer.getFeatures():
-            boundary_geom = boundary.geometry()
-            result = calculateAwaP(self, boundary_geom)
-            if result is False:
-                return False
-            else:
-                self.resulting_layers.append(result)
+        if self.colorByAwap is False:
+            # this is the default operation when coloring by perimeter or area
+            # and blocks need to be produced for each boundary and saved for
+            # visualisation
+            self.resulting_layers = []
+            for boundary in self.boundary_layer.getFeatures():
+                boundary_geom = boundary.geometry()
+                result = calculateAwaP(self, boundary_geom).get('AwaP result blocks layer')
+                if result is False:
+                    return False
+                else:
+                    self.resulting_layers.append(result)
+        elif self.colorByAwap is True:
+            # this is when the multible boundaries are in use and the results
+            # only need to show grid cells colored by AwaP, blocks are not
+            # returned in this option
+
+            # first add the attribute field AwaP in the boundary layer - this will hold
+            # AwaP results for each grid cell
+            provider = self.boundary_layer.dataProvider()
+            provider.addAttributes(
+                [
+                    QgsField('AwaP', QVariant.Double)
+                ]
+            )
+            awap_id = provider.fieldNameIndex('AwaP')
+            # now iterate through each grid cell and assign resulting AwaP
+            with edit(self.boundary_layer):
+                for boundary in self.boundary_layer.getFeatures():
+                    boundary_geom = boundary.geometry()
+                    result = calculateAwaP(self, boundary_geom)
+                    if result is False:
+                        return False
+                    else:
+                        self.boundary_layer.changeAttributeValue(
+                            boundary.id(),
+                            awap_id,
+                            result.get('AwaP')
+                        )
+
+            # use self.resulting_layers to store the boundary layer for showing on the map
+            # because this is already handled in the finished() method, avoids extra code
+            self.boundary_layer.setName('AwaP cells')
+            self.resulting_layers = [self.boundary_layer]
         
         endtime = time.time()
         self.duration = endtime-starttime
@@ -503,7 +559,7 @@ class AwaPWorker(QgsTask):
             
             for layer in self.resulting_layers:
                 if self.styleResultingLayers:
-                    self.layerPrintStyled.emit(layer)
+                    self.layerPrintStyled.emit(layer, self.colorby)
                 else:
                     self.layerPrint.emit(
                         layer,

@@ -81,7 +81,17 @@ class AwaP:
         # this is where I define the threadpool for the threaded running of the plugin
         self.threadpool = QThreadPool()
 
+
 ##############################################################################
+        # Initially disable by awap coloring option - only works with multi-boundary
+        # Check if multiple boundary option is selected
+        if self.dlg.radioButton_2.isChecked():
+            # If yes, enable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(True)
+        else:
+            # If not, disable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(False)
+
         # this is where i define that qgsmaplayercombobox should only
         # list line and polygon layers
         vector_layers_filter = QgsMapLayerProxyModel.Filter(8 | 16)
@@ -111,6 +121,22 @@ class AwaP:
         self.dlg.button_box.accepted.connect(self.showRunning)
         self.dlg.button_box.accepted.connect(self.execute)
         self.dlg.button_box.rejected.connect(self.close_dialog)
+
+        self.dlg.radioButton_2.toggled.connect(self.enable_by_awap_coloring)
+    
+    def enable_by_awap_coloring(self):
+        # Check if multiple boundary option is selected
+        if self.dlg.radioButton_2.isChecked():
+            # If yes, enable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(True)
+        else:
+            # If not, disable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(False)
+            # Also change the selected coloring method to by perimeter
+            # In case that by awap was selected before disabling
+            self.dlg.comboBox.setCurrentIndex(0)
+
+
     
 
     def check_number_value(self, item: QTableWidgetItem):
@@ -144,7 +170,7 @@ class AwaP:
         when the user presses the 'Color' button. At the confirmation
         of the color dialog, set the color in the current row."""
         row = self.dlg.tableWidget.currentRow()
-        if row is not None:
+        if row >= 0:
             initial_color = self.dlg.tableWidget.item(row, 3).background().color()
             color = QgsColorDialog.getColor(
                 initialColor=initial_color,
@@ -199,7 +225,7 @@ class AwaP:
     def move_row_up(self, signal):    
         """A method that moves the selected row up 1 place."""
         row = self.dlg.tableWidget.currentRow()
-        column = self.dlg.tableWidget.currentColumn();
+        column = self.dlg.tableWidget.currentColumn()
         if row > 0:
             self.dlg.tableWidget.insertRow(row-1)
             for i in range(self.dlg.tableWidget.columnCount()):
@@ -210,8 +236,8 @@ class AwaP:
     def move_row_down(self, signal):
         """A method that moves the selected down up 1 place."""
         row = self.dlg.tableWidget.currentRow()
-        column = self.dlg.tableWidget.currentColumn();
-        if row < self.dlg.tableWidget.rowCount()-1:
+        column = self.dlg.tableWidget.currentColumn()
+        if row >= 0 and row < self.dlg.tableWidget.rowCount()-1:
             self.dlg.tableWidget.insertRow(row + 2)
             for i in range(self.dlg.tableWidget.columnCount()):
                self.dlg.tableWidget.setItem(row+2,i,self.dlg.tableWidget.takeItem(row,i))
@@ -421,6 +447,9 @@ class AwaP:
         QgsMessageLog.logMessage(message, 'AwaP', level=Qgis.Info)
 
     def showLayer(self, layer, params):
+        '''A method for showing layers on the map without any user
+        defined custom styling options. Layers are rendered in the 
+        stock red color.'''
         added_layer = QgsProject.instance().addMapLayer(layer)
         color = params.get('color')
         width = params.get('width')
@@ -435,24 +464,51 @@ class AwaP:
         else:
             self.log('Could not add the layer because it had 0 features (layer was None)!')
 
-    def showStyledLayer(self, layer):
+    def showStyledLayer(self, layer, colorby):
+        '''A method for showing layers on the map, styled with the user defined
+        colors through the plugin gui, and the user defined coloring options.'''
         added_layer = QgsProject.instance().addMapLayer(layer)
         if added_layer is not None:
-            fld = self.dlg.comboBox.currentText()[3:]
             table = self.dlg.tableWidget
             range_list = []
+            # iterate through the table with user defined colors and categories
             for row in range(0, table.rowCount()):
+                # The "Lower value" column of the current row
                 lowerbound = float(table.item(row,0).text())
+                # The "Upper value" column of the current row
                 upperbound = float(table.item(row,1).text())
+                # The "Legend" column of the current row
                 legend = table.item(row,2).text()
+                # The "Color" column of the current row
+                # Fetch the actual QgsColor object
                 color = table.item(row,3).background().color()
-                
+                # Create a new QgsSymbol
                 sym = QgsSymbol.defaultSymbol(layer.geometryType())
+                # Give it a QgsColor fetched earlier from the current row
                 sym.setColor(color)
+                # Put the information about the row together into
+                # a QgsRendererRange object
                 rng = QgsRendererRange(lowerbound, upperbound, sym, legend)
                 range_list.append(rng)
-            renderer = QgsGraduatedSymbolRenderer(fld, range_list)
-            added_layer.setRenderer(renderer)
+            # create a graduated renderer from the user defined color table
+            renderer = QgsGraduatedSymbolRenderer(colorby, range_list)
+            # convert it to rule based renderer that has the ability to define
+            # an "ELSE" rule
+            rule_based_renderer = QgsRuleBasedRenderer.convertFromRenderer(renderer)
+            # create a QgsSymbol for the ELSE rule
+            else_sym = QgsSymbol.defaultSymbol(layer.geometryType())
+            # give it a color of the last row from the table
+            color = table.item(table.rowCount()-1,3).background().color()
+            else_sym.setColor(color)
+            # create the ELSE rule
+            else_rule = QgsRuleBasedRenderer.Rule(
+                else_sym,
+                label='else',
+                elseRule=True)
+            # append it to the rule based renderer
+            rule_based_renderer.rootRule().appendChild(else_rule)
+            # show the layer in the map with the rule based renderer
+            added_layer.setRenderer(rule_based_renderer)
             added_layer.triggerRepaint()
             self.iface.layerTreeView().refreshLayerSymbology(added_layer.id())
             self.log('Added layer "%s" to the map.' %layer.sourceName())
