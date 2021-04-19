@@ -13,7 +13,6 @@ import processing
 from osgeo import ogr, osr
 from math import isnan
 
-import ptvsd
 import time
 
 MESSAGE_CATEGORY = 'AwaP'
