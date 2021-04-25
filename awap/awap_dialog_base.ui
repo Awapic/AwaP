@@ -778,7 +778,7 @@
              </item>
              <item row="1" column="0">
               <property name="text">
-               <string>201</string>
+               <string>200</string>
               </property>
              </item>
              <item row="1" column="1">
@@ -788,7 +788,7 @@
              </item>
              <item row="1" column="2">
               <property name="text">
-               <string>201 - 300</string>
+               <string>200 - 300</string>
               </property>
              </item>
              <item row="1" column="3">
@@ -810,7 +810,7 @@
              </item>
              <item row="2" column="0">
               <property name="text">
-               <string>301</string>
+               <string>300</string>
               </property>
              </item>
              <item row="2" column="1">
@@ -820,7 +820,7 @@
              </item>
              <item row="2" column="2">
               <property name="text">
-               <string>301 - 400</string>
+               <string>300 - 400</string>
               </property>
              </item>
              <item row="2" column="3">
@@ -842,7 +842,7 @@
              </item>
              <item row="3" column="0">
               <property name="text">
-               <string>401</string>
+               <string>400</string>
               </property>
              </item>
              <item row="3" column="1">
@@ -852,7 +852,7 @@
              </item>
              <item row="3" column="2">
               <property name="text">
-               <string>401 - 600</string>
+               <string>400 - 600</string>
               </property>
              </item>
              <item row="3" column="3">
@@ -874,7 +874,7 @@
              </item>
              <item row="4" column="0">
               <property name="text">
-               <string>601</string>
+               <string>600</string>
               </property>
              </item>
              <item row="4" column="1">
@@ -884,7 +884,7 @@
              </item>
              <item row="4" column="2">
               <property name="text">
-               <string>601 - 10000</string>
+               <string>600 - 10000</string>
               </property>
              </item>
              <item row="4" column="3">
