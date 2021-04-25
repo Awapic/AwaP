@@ -1,5 +1,5 @@
 # AwaP 
-AwaP is part of AwaP-IC - a QGIS tool that calculates the Area-weighted average Perimeter (AwaP) and Interface Catchment (IC), two measures developed by Pafka & Dovey (2017), that combined, capture the capacities of urban morphologies to enable and attract pedestrian movement. While AwaP and IC should be considered together in the analysis of walkable access, in this 1.0 version of the AwaP-IC software the two measures are provided by distinct plugins.
+AwaP is part of AwaP-IC - a QGIS tool that calculates the Area-weighted average Perimeter (AwaP) and Interface Catchment (IC), two measures developed by Pafka & Dovey (2017), that combined, capture the capacities of urban morphologies to enable and attract pedestrian movement. While AwaP and IC should be considered together in the analysis of walkable access, in this 2.0.0 version of the AwaP-IC software the two measures are provided by distinct plugins.
 
 AwaP is a measure of urban permeability, that calculates the average perimeter of urban blocks within a study area, weighing the perimeter of each block by its area. This way the impact of a large block will be proportional with the share of the study area it occupies, and its effect as a major-barrier to movement is not lost in the average. The lower the AwaP, the easier is to walk through the urban fabric. An AwaP of 400m corresponds to a square block of 100x100m, often taken as the maximum block-length that still allows good permeability. 
 
@@ -14,8 +14,10 @@ The base requirement for the calculation of these measures is a layer of urban b
 It takes in several parameters in order to calculate AwaP:
 - *Blocks layer* - A layer containing the urban blocks for which AwaP will be calculated. This layer can have polygon geometries, or linear geometries where outlines of urban blocks are represented as closed polylines.
 - *Boundary layer* - A layer containing the boundary of the area of interest (i.e. the area that contains the blocks for which AwaP will be calculated). This layer too can have a polygon geometry, or a linear geometry where the boundary of the area of interest is represented as a closed polyline.
+- *Boundary layer options* - Users can choose to calculate a single AwaP for the boundary layer, or if the boundary layer contains multiple polygons, users can choose to calculate separate AwaP value for each polygon in the boundary layer. The button "Create a polygon grid..." opens a QGIS tool where users can easily create a grid for AwaP calculation on multiple polygons in the study area.
 - *Blocks intersecting boundary* - A parameter that specifies whether to consider the urban blocks which are only partly within the area of interest. The default option is to include a block if more than half of the block is within the study boundary. See section below for further detail.
 - *Dead-end removal* - A parameter that specifies if the dead-end streets should be removed from blocks prior to calculating AwaP, and the maximum width of the dead-end streets to be removed. The default value of 40m should work for most urban morphologies.
+- *Apply custom style categories* - If this option is enabled, the layers that are created as a result of AwaP calculation will be rendered according to the user-specified color scheme that can be modified in the plugin window. If disabled, the layers will be rendered in stock red color.
 
 ![AwaP GUI](./figures/AwaP-gui.png)
 

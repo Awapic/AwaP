@@ -45,3 +45,4 @@ class AwaPDialog(QtWidgets.QDialog, FORM_CLASS):
         # this is my added part where I initially hide labels 6 and 7 (AwaP = value)
         self.label_6.setVisible(False)
         self.label_7.setVisible(False)
+        # self.label_9.setVisible(False)

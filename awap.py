@@ -22,10 +22,10 @@
  ***************************************************************************/
 """
 from PyQt5.QtCore import (QSettings, QTranslator, qVersion, QCoreApplication,
-                          QObject, QThread, pyqtRemoveInputHook, pyqtSignal,
-                          QVariant)
-from PyQt5.QtGui import QIcon, QColor
-from PyQt5.QtWidgets import QAction
+                          QObject, QThread, QThreadPool, QRunnable, pyqtRemoveInputHook, pyqtSignal,
+                          QVariant, Qt)
+from PyQt5.QtGui import QIcon, QColor, QBrush
+from PyQt5.QtWidgets import QAction, QTableWidgetItem
 
 from qgis.core import *
 from qgis.gui import *
@@ -37,6 +37,8 @@ from .awap_dialog import AwaPDialog
 import os.path
 import processing
 from osgeo import ogr, osr
+from processing.tools.general import execAlgorithmDialog
+from .awap_worker import AwaPWorker
 
 class AwaP:
     """QGIS Plugin Implementation."""
@@ -53,7 +55,6 @@ class AwaP:
         self.iface = iface
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
-        # initialize locale
         locale = QSettings().value('locale/userLocale')[0:2]
         locale_path = os.path.join(
             self.plugin_dir,
@@ -77,7 +78,20 @@ class AwaP:
         self.toolbar = self.iface.addToolBar(u'AwaP')
         self.toolbar.setObjectName(u'AwaP')
 
+        # this is where I define the threadpool for the threaded running of the plugin
+        self.threadpool = QThreadPool()
+
+
 ##############################################################################
+        # Initially disable by awap coloring option - only works with multi-boundary
+        # Check if multiple boundary option is selected
+        if self.dlg.radioButton_2.isChecked():
+            # If yes, enable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(True)
+        else:
+            # If not, disable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(False)
+
         # this is where i define that qgsmaplayercombobox should only
         # list line and polygon layers
         vector_layers_filter = QgsMapLayerProxyModel.Filter(8 | 16)
@@ -93,10 +107,143 @@ class AwaP:
         self.dlg.checkBox_3.stateChanged.connect(self.checkbox3_on_change)
         self.dlg.checkBox_4.stateChanged.connect(self.checkbox4_on_change)
         self.dlg.checkBox_5.stateChanged.connect(self.checkbox5_on_change)
+        self.dlg.pushButton.clicked.connect(self.pushbutton_on_press)
 
+        # row manipulation in the style table:
+        self.dlg.pushButton_2.clicked.connect(self.add_row)
+        self.dlg.pushButton_3.clicked.connect(self.delete_row)
+        self.dlg.pushButton_4.clicked.connect(self.move_row_up)
+        self.dlg.pushButton_5.clicked.connect(self.move_row_down)
+        self.dlg.pushButton_6.clicked.connect(self.open_color_dialog_button)
+        self.dlg.tableWidget.itemClicked.connect(self.open_color_dialog)
+        self.dlg.tableWidget.itemChanged.connect(self.check_number_value)
 
+        self.dlg.button_box.accepted.connect(self.showRunning)
         self.dlg.button_box.accepted.connect(self.execute)
         self.dlg.button_box.rejected.connect(self.close_dialog)
+
+        self.dlg.radioButton_2.toggled.connect(self.enable_by_awap_coloring)
+    
+    def enable_by_awap_coloring(self):
+        # Check if multiple boundary option is selected
+        if self.dlg.radioButton_2.isChecked():
+            # If yes, enable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(True)
+        else:
+            # If not, disable by awap coloring
+            self.dlg.comboBox.model().item(2).setEnabled(False)
+            # Also change the selected coloring method to by perimeter
+            # In case that by awap was selected before disabling
+            self.dlg.comboBox.setCurrentIndex(0)
+
+
+    
+
+    def check_number_value(self, item: QTableWidgetItem):
+        """A method that makes sure that the entered value
+        can be turned to float. If not, change the current
+        value to 0."""
+        if item is None:
+            self.log('Item (%s, %s) is None' %(item.row(), item.column()))
+        elif item.column() < 2:
+            try:
+                float(item.text())
+            except ValueError as e:
+                self.log('Invalid value "%s" entered, value changed to 0.' %item.text())
+                item.setText('0')
+            finally:
+                if None not in (self.dlg.tableWidget.item(item.row(), 0), self.dlg.tableWidget.item(item.row(), 1), self.dlg.tableWidget.item(item.row(), 2)) and ' - ' in self.dlg.tableWidget.item(item.row(), 2).text():
+                    legend = self.dlg.tableWidget.item(item.row(), 2).text()
+                    legend_split = legend.split(' - ')
+                    legend_split[item.column()] = item.text()
+                    legend = ' - '.join(legend_split)
+                    self.dlg.tableWidget.item(item.row(), 2).setText(legend)
+                # else:
+                #     legend_low = self.dlg.tableWidget.item(item.row(), 0).text()
+                #     legend_high = self.dlg.tableWidget.item(item.row(), 1).text()
+                #     legend = ' - '.join([legend_low, legend_high])
+                #     self.dlg.tableWidget.setItem(item.row(), 2, QTableWidgetItem().setText(legend))
+
+
+    def open_color_dialog_button(self, signal: bool):
+        """A method that creates a color dialog window and shows it
+        when the user presses the 'Color' button. At the confirmation
+        of the color dialog, set the color in the current row."""
+        row = self.dlg.tableWidget.currentRow()
+        if row >= 0:
+            initial_color = self.dlg.tableWidget.item(row, 3).background().color()
+            color = QgsColorDialog.getColor(
+                initialColor=initial_color,
+                parent=self.dlg.tableWidget,
+                allowOpacity=False
+            )
+            if color.isValid():
+                self.dlg.tableWidget.item(row,3).setBackground(color)
+
+    def open_color_dialog(self, item: QTableWidgetItem):
+        """A method that creates a color dialog window and shows it
+        when the user presses the 'Color' button. At the confirmation
+        of the color dialog, set the color in the current row."""
+        if item.column() == 3:
+            initial_color = item.background().color()
+            color = QgsColorDialog.getColor(
+                initialColor=initial_color,
+                parent=self.dlg.tableWidget,
+                allowOpacity=False
+            )
+            self.log(str(color.getRgb()))
+            if color.isValid():
+                item.setBackground(color)
+
+    def add_row(self, signal):
+        """A method that adds a row to the end of the table that defines
+        the output layer styling in the GUI. When the 'Add row' button is
+        pressed, a new row is added to the bottom of the tableWidget."""
+        row = self.dlg.tableWidget.currentRow()
+        self.log(str(row))
+        self.dlg.tableWidget.insertRow(row+1)
+        for col in range(0,self.dlg.tableWidget.columnCount()):
+            self.dlg.tableWidget.setItem(row+1,col,QTableWidgetItem())
+        self.dlg.tableWidget.item(row+1,3).setFlags(Qt.ItemIsEnabled)
+
+        if self.dlg.tableWidget.item(row,3) is not None:
+            bground = self.dlg.tableWidget.item(row,3).background()
+        else:
+            bground = QBrush(QColor(255,255,255),1)
+        self.dlg.tableWidget.item(row+1,0).setText('0')
+        self.dlg.tableWidget.item(row+1,1).setText('0')
+        self.dlg.tableWidget.item(row+1,2).setText('0 - 0')
+        self.dlg.tableWidget.item(row+1,3).setBackground(bground)
+
+        
+    def delete_row(self, signal):
+        """A method that removes the selected rows from the table.
+        When the 'Delete row' button is pressed, this method removes
+        all currently selected rows from the tableWidget."""
+        self.dlg.tableWidget.removeRow(self.dlg.tableWidget.currentRow())
+
+    def move_row_up(self, signal):    
+        """A method that moves the selected row up 1 place."""
+        row = self.dlg.tableWidget.currentRow()
+        column = self.dlg.tableWidget.currentColumn()
+        if row > 0:
+            self.dlg.tableWidget.insertRow(row-1)
+            for i in range(self.dlg.tableWidget.columnCount()):
+               self.dlg.tableWidget.setItem(row-1,i,self.dlg.tableWidget.takeItem(row+1,i))
+               self.dlg.tableWidget.setCurrentCell(row-1,column)
+            self.dlg.tableWidget.removeRow(row+1)        
+
+    def move_row_down(self, signal):
+        """A method that moves the selected down up 1 place."""
+        row = self.dlg.tableWidget.currentRow()
+        column = self.dlg.tableWidget.currentColumn()
+        if row >= 0 and row < self.dlg.tableWidget.rowCount()-1:
+            self.dlg.tableWidget.insertRow(row + 2)
+            for i in range(self.dlg.tableWidget.columnCount()):
+               self.dlg.tableWidget.setItem(row+2,i,self.dlg.tableWidget.takeItem(row,i))
+               self.dlg.tableWidget.setCurrentCell(row+2,column)
+            self.dlg.tableWidget.removeRow(row)        
+
 
     def checkbox4_on_change(self, signal):
         """A method that disables other options for blocks intersecting
@@ -153,10 +300,34 @@ class AwaP:
         elif not self.dlg.checkBox_3.isChecked():
             self.dlg.checkBox_5.setCheckState(QtCore.Qt.Checked)
 
+    def pushbutton_on_press(self, signal):
+        """A method that opens a qgis:creategrid algorithm window with preset
+        parameters so that users can create a grid of polygons to use as
+        boundaries for AwaP calculation."""
+        params = {
+            'TYPE':2,
+            'HSPACING':1000,
+            'VSPACING':1000
+        }
+        results = execAlgorithmDialog('qgis:creategrid', params)
+        if 'OUTPUT' in results.keys():
+            # automatically set the plugin to use the multi-boundary option
+            self.dlg.radioButton_2.setChecked(True)
+            added_layer = QgsProject.instance().mapLayers()[results['OUTPUT']]
+            added_layer.renderer().symbol().setColor(QColor(255,0,0,0))
+            added_layer.triggerRepaint()
+            self.iface.layerTreeView().refreshLayerSymbology(added_layer.id())
+
     def close_dialog(self):
         """Method for closing the plugin dialog when button cancel is
         pressed"""
         self.dlg.close()
+    
+    def showRunning(self):
+        """Method that shows the label when the plugin is running to
+        notify the user"""
+        # self.dlg.label_9.setVisible(True)
+        pass
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -276,392 +447,98 @@ class AwaP:
         QgsMessageLog.logMessage(message, 'AwaP', level=Qgis.Info)
 
     def showLayer(self, layer, params):
+        '''A method for showing layers on the map without any user
+        defined custom styling options. Layers are rendered in the 
+        stock red color.'''
         added_layer = QgsProject.instance().addMapLayer(layer)
         color = params.get('color')
         width = params.get('width')
-        if color:
-            added_layer.renderer().symbol().setColor(QColor(color))
-        if width:
-            added_layer.renderer().symbol().setWidth(width)
-        added_layer.triggerRepaint()
-        self.iface.layerTreeView().refreshLayerSymbology(added_layer.id())
-        self.log('Added layer "%s" with color: %s, width: %s to the map.' %(layer.sourceName(),color,width))
+        if added_layer is not None:
+            if color:
+                added_layer.renderer().symbol().setColor(QColor(color))
+            if width:
+                added_layer.renderer().symbol().setWidth(width)
+            added_layer.triggerRepaint()
+            self.iface.layerTreeView().refreshLayerSymbology(added_layer.id())
+            self.log('Added layer "%s" with color: %s, width: %s to the map.' %(layer.sourceName(),color,width))
+        else:
+            self.log('Could not add the layer because it had 0 features (layer was None)!')
+
+    def showStyledLayer(self, layer, colorby):
+        '''A method for showing layers on the map, styled with the user defined
+        colors through the plugin gui, and the user defined coloring options.'''
+        added_layer = QgsProject.instance().addMapLayer(layer)
+        if added_layer is not None:
+            table = self.dlg.tableWidget
+            range_list = []
+            # iterate through the table with user defined colors and categories
+            for row in range(0, table.rowCount()):
+                # The "Lower value" column of the current row
+                lowerbound = float(table.item(row,0).text())
+                # The "Upper value" column of the current row
+                upperbound = float(table.item(row,1).text())
+                # The "Legend" column of the current row
+                legend = table.item(row,2).text()
+                # The "Color" column of the current row
+                # Fetch the actual QgsColor object
+                color = table.item(row,3).background().color()
+                # Create a new QgsSymbol
+                sym = QgsSymbol.defaultSymbol(layer.geometryType())
+                # Give it a QgsColor fetched earlier from the current row
+                sym.setColor(color)
+                # Put the information about the row together into
+                # a QgsRendererRange object
+                rng = QgsRendererRange(lowerbound, upperbound, sym, legend)
+                range_list.append(rng)
+            # create a graduated renderer from the user defined color table
+            renderer = QgsGraduatedSymbolRenderer(colorby, range_list)
+            # convert it to rule based renderer that has the ability to define
+            # an "ELSE" rule
+            rule_based_renderer = QgsRuleBasedRenderer.convertFromRenderer(renderer)
+            # create a QgsSymbol for the ELSE rule
+            else_sym = QgsSymbol.defaultSymbol(layer.geometryType())
+            # give it a color of the last row from the table
+            color = table.item(table.rowCount()-1,3).background().color()
+            else_sym.setColor(color)
+            # create the ELSE rule
+            else_rule = QgsRuleBasedRenderer.Rule(
+                else_sym,
+                label='else',
+                elseRule=True)
+            # append it to the rule based renderer
+            rule_based_renderer.rootRule().appendChild(else_rule)
+            # show the layer in the map with the rule based renderer
+            added_layer.setRenderer(rule_based_renderer)
+            added_layer.triggerRepaint()
+            self.iface.layerTreeView().refreshLayerSymbology(added_layer.id())
+            self.log('Added layer "%s" to the map.' %layer.sourceName())
+        else:
+            self.log('Could not add the layer because it had 0 features (layer was None)!')
+
+    def update_task_number_label(self):
+        active_tasks = QgsApplication.taskManager().activeTasks()
+        awap_task_count = sum([1 for t in active_tasks if type(t)==AwaPWorker])
+        if awap_task_count == 1:
+            self.dlg.label_9.setText(
+                'There is %s AwaP plugin task running in the background. Please wait!' %awap_task_count
+            )
+        elif awap_task_count == 0:
+            self.dlg.label_9.setText('')
+        elif awap_task_count > 1:
+            self.dlg.label_9.setText(
+                'There are %s AwaP plugin tasks running in the background. Please wait!' %awap_task_count
+            )
+
+    def delete_task_number_label(self):
+       self.dlg.label_9.setText('')
 
     def execute(self):
-        """This is where I execute all my code - the real plugin that does the
-        work."""
-
-        self.log('AWAP PLUGIN STARTED')
-
-        # abort parameter for stopping function in loop execution
-        self.abort = False
-        self.debug = False
-
-        # THIS IS WHERE I GET THE PARAMETERS FROM THE PLUGIN DIALOG
-        self.blocks_layer = self.dlg.mMapLayerComboBox.currentLayer()
-        self.log('blocks_layer = %s' %self.blocks_layer.sourceName())
-
-        self.boundary_layer = self.dlg.mMapLayerComboBox_2.currentLayer()
-        self.log('boundary_layer = %s' %self.boundary_layer.sourceName())
-
-        self.deadend_solution = self.dlg.checkBox_3.checkState()
-        self.log('deadend solution enabled: %s' %self.deadend_solution)
-
-        self.buffering_distance = self.dlg.mQgsDoubleSpinBox.value()/2
-        if self.deadend_solution:
-            self.log('buffering distance: %s' %self.buffering_distance)
-
-        self.always_in = self.dlg.checkBox.checkState()
-        self.always_out = self.dlg.checkBox_2.checkState()
-        self.percent_in = self.dlg.mQgsSpinBox.value()
-
-        self.canvas = self.iface.mapCanvas()
-        self.project_crs = self.canvas.mapSettings().destinationCrs().authid()
-        self.log('The plugin is working on the project CRS: %s' %self.project_crs)
-
-        # Preliminary fix the blocks layer
-        self.blocks_layer = processing.run(
-            'qgis:fixgeometries',
-            {
-                'INPUT': self.blocks_layer,
-                'OUTPUT': 'memory:',
-            }
-        )['OUTPUT']
-
-        # REPROJECT both boundary and sp layers
-        self.blocks_layer = processing.run(
-            'qgis:reprojectlayer',
-            {
-                'INPUT': self.blocks_layer,
-                'TARGET_CRS': self.project_crs,
-                'OUTPUT': 'memory:',
-            }
-        )['OUTPUT']
-
-        self.boundary_layer = processing.run(
-            'qgis:reprojectlayer',
-            {
-                'INPUT': self.boundary_layer,
-                'TARGET_CRS': self.project_crs,
-                'OUTPUT': 'memory:boundary',
-            }
-        )['OUTPUT']
-
-        # first check if the boundary layer == lines
-        if self.boundary_layer.geometryType() == 1:
-            self.boundary_layer = processing.run(
-                'qgis:linestopolygons',
-                {
-                    'INPUT': self.boundary_layer,
-                    'OUTPUT': 'memory:boundary',
-                }
-            )['OUTPUT']
-
-        # this is where I need to select from the blocks layer only those features which intersect with the boundary
-        self.blocks_layer = processing.run(
-            'qgis:extractbylocation',
-            {
-                'INPUT' : self.blocks_layer,
-                'PREDICATE' : [0],
-                'INTERSECT' : self.boundary_layer,
-                'OUTPUT' : 'memory:',
-            }
-        )['OUTPUT']
-
-###################################################################
-####### HANDLING THE BLOCKS LAYER
-
-        # check if the blocks layer == lines
-        if self.blocks_layer.geometryType() == 1:
-            self.blocks_layer = processing.run(
-                'qgis:linestopolygons',
-                {
-                    'INPUT': self.blocks_layer,
-                    'OUTPUT': 'memory:',
-                }
-            )['OUTPUT']
-
-        # dissolve the created polygons in order to make touching polyigons
-        # into one block
-        pathdissolve = processing.run(
-            'qgis:dissolve',
-            {
-                'INPUT':self.blocks_layer,
-                'OUTPUT': 'memory:dissolve',
-            }
-        )['OUTPUT']
-
-        # convert dissolve result from multipart to singleparts
-        self.blocks_layer = processing.run(
-            'qgis:multiparttosingleparts',
-            {
-                'INPUT': pathdissolve,
-                'OUTPUT': 'memory:singleparts',
-            }
-        )['OUTPUT']
-
-        # see if the deadend solution has been selected when the plugin was run
-        # if true, run the whole buffering solution for removing deadends from
-        # the results
-        if self.deadend_solution:
-            # first I need to buffer out the blocks by the given distance
-            # amount
-            buffer_out_layer = processing.run(
-                'qgis:buffer',
-                {
-                    'INPUT' : self.blocks_layer,
-                    'END_CAP_STYLE' : 1,
-                    'OUTPUT' : 'memory:bufferout',
-                    'SEGMENTS' : 90,
-                    'DISTANCE' : self.buffering_distance,
-                    'JOIN_STYLE' : 0,
-                    'MITER_LIMIT': 2,
-                    'DISSOLVE' : False,
-                }
-            )['OUTPUT']
-
-            # # finally, fill in any wholes that are left in the blocks
-            # buffer_out_layer = processing.run(
-            #     'qgis:deleteholes',
-            #     {
-            #         'INPUT' : buffer_out_layer,
-            #         'MIN_AREA' : 0,
-            #         'OUTPUT' : 'memory:deleteholes_buffer',
-            #     }
-            # )['OUTPUT']
-
-            # buffer_out_layer = processing.run(
-            #     'qgis:fixgeometries',
-            #     {
-            #         'INPUT': buffer_out_layer,
-            #         'OUTPUT': 'memory:',
-            #     }
-            # )['OUTPUT']
-
-            # then I need to buffer back in by the same distance amount
-            buffer_in_layer = processing.run(
-                'qgis:buffer',
-                {
-                    'INPUT' : buffer_out_layer,
-                    'END_CAP_STYLE' : 1,
-                    'OUTPUT' : 'memory:bufferin',
-                    'SEGMENTS' : 90,
-                    'DISTANCE' : -self.buffering_distance,
-                    'JOIN_STYLE' : 0,
-                    'MITER_LIMIT': 2,
-                    'DISSOLVE' : False,
-                }
-            )['OUTPUT']
-
-            self.blocks_layer = buffer_in_layer
-
-        # finally, fill in any wholes that are left in the blocks
-        self.blocks_layer = processing.run(
-            'qgis:deleteholes',
-            {
-                'INPUT' : self.blocks_layer,
-                'MIN_AREA' : 0,
-                'OUTPUT' : 'memory:deleteholes',
-            }
-        )['OUTPUT']
-
-
-        self.final_blocks_layer =  QgsVectorLayer('Polygon?crs='+self.project_crs, 'IC_blocks' , "memory")
-
-        # get the data provider of the blocks layer
-        provider = self.final_blocks_layer.dataProvider()
-
-        # Create attribute fields to hold area, and parimeter values
-        provider.addAttributes(
-            [
-                QgsField('awap_id', QVariant.Int),
-                QgsField('Area', QVariant.Double),
-                QgsField('Perimeter', QVariant.Double),
-                QgsField('AwaP', QVariant.Double)
-            ]
-        )
-
-        # Tell vector layer to update fields in order to get the new layers
-        # from data provider
-        self.final_blocks_layer.updateFields()
-
-        # AwaP is calculated as sum(Perimeter x Area) / sum(Area)
-        # keep track of both numerator and denominator of this equation
-        numerator_sumPxA = 0
-        denominator_sumA = 0
-
-        # Now I need to fetch column numbers of these new attributes for when
-        # I need to update them later on
-        awap_id_id = provider.fieldNameIndex('awap_id')
-        area_id = provider.fieldNameIndex('Area')
-        perimeter_id = provider.fieldNameIndex('Perimeter')
-
-        i = 1
-
-        if self.always_in:
-            for boundary in self.boundary_layer.getFeatures():
-                boundary_geom = boundary.geometry()
-
-                with edit(self.final_blocks_layer):
-                    for block in self.blocks_layer.getFeatures():
-                        block_geom = block.geometry()
-
-                        if block_geom.intersects(boundary_geom):
-
-                            # Calculate area and perimeter of the block
-                            P = block_geom.length()
-                            A = block_geom.area()
-
-                            # Create a new feature with the geometry of the
-                            # block and the id, perimeter and area attributes
-                            feature = QgsFeature()
-                            feature.setGeometry(block_geom)
-                            feature.setId(i)
-                            provider.addFeatures( [feature] )
-
-                            # Add area and perimtere of the block to the attribute
-                            # table
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                awap_id_id,
-                                i
-                            )
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                area_id,
-                                A
-                            )
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                perimeter_id,
-                                P
-                            )
-
-                            # Finally, keep incrementing (summing) num & denum
-                            numerator_sumPxA += P * A
-                            denominator_sumA += A
-                            #  print("Area:", block_geom.area())
-
-                            i += 1
-
-        elif self.always_out:
-            for boundary in self.boundary_layer.getFeatures():
-                boundary_geom = boundary.geometry()
-
-                with edit(self.final_blocks_layer):
-                    for block in self.blocks_layer.getFeatures():
-                        block_geom = block.geometry()
-
-                        if block_geom.within(boundary_geom):
-                            P = block_geom.length()
-                            A = block_geom.area()
-
-                            # Create a new feature with the geometry of the
-                            # block and the id, perimeter and area attributes
-                            feature = QgsFeature()
-                            feature.setGeometry(block_geom)
-                            feature.setId(i)
-                            provider.addFeatures( [feature] )
-
-                            # Add area and perimtere of the block to the attribute
-                            # table
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                awap_id_id,
-                                i
-                            )
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                area_id,
-                                A
-                            )
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                perimeter_id,
-                                P
-                            )
-
-                            # Finally, keep incrementing (summing) num & denum
-                            numerator_sumPxA += P * A
-                            denominator_sumA += A
-                            #  print("Area:", block_geom.area())
-
-                            i += 1
-
-        else:
-            for boundary in self.boundary_layer.getFeatures():
-                boundary_geom = boundary.geometry()
-
-                with edit(self.final_blocks_layer):
-                    for block in self.blocks_layer.getFeatures():
-                        block_geom = block.geometry()
-
-                        block_intersection = block_geom.intersection(boundary_geom)
-
-                        A = block_geom.area()
-                        if A > 0:
-                            block_percent = block_intersection.area() / A * 100
-                            #  print('block_percent: ', block_percent)
-                            #  print('percent_in: ', self.percent_in)
-                        else:
-                            block_percent = 0
-
-                        if block_percent >= self.percent_in:
-                            P = block_geom.length()
-
-                            # Create a new feature with the geometry of the
-                            # block and the id, perimeter and area attributes
-                            feature = QgsFeature()
-                            feature.setGeometry(block_geom)
-                            feature.setId(i)
-                            provider.addFeatures( [feature] )
-
-                            # Add area and perimtere of the block to the attribute
-                            # table
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                awap_id_id,
-                                i
-                            )
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                area_id,
-                                A
-                            )
-                            self.final_blocks_layer.changeAttributeValue(
-                                i,
-                                perimeter_id,
-                                P
-                            )
-
-                            # Finally, keep incrementing (summing) num & denum
-                            numerator_sumPxA += P * A
-                            denominator_sumA += A
-                            print("Area:", block_geom.area())
-
-                            i += 1
-
-        if denominator_sumA:
-            AwaP = numerator_sumPxA / denominator_sumA
-        else:
-            AwaP = 0
-        #  print('AwaP: ', AwaP)
-
-        # Put the calculated AwaP into the label that shows the result
-        self.dlg.label_6.setText('%s m' %round(AwaP,1))
-        self.dlg.label_7.setVisible(True)
-        self.dlg.label_6.setVisible(True)
-
-        # show the blocks layer in the qgis map
-        awap_id = provider.fieldNameIndex('AwaP')
-        with edit(self.final_blocks_layer):
-            for block in self.blocks_layer.getFeatures():
-                    self.final_blocks_layer.changeAttributeValue(
-                        block.id(),
-                        awap_id,
-                        AwaP
-                    )
-        self.final_blocks_layer.updateFields()
-        self.final_blocks_layer.setName('AwaP_' + str(int(round(AwaP,0))))
-        # self.showLayer(self.boundary_layer, {'color' : 'dark gray'})
-        self.showLayer(self.final_blocks_layer, {'color' : QColor(128, 55, 55).rgb()})
+        try:
+            myworker = self.myworker = AwaPWorker(self, 'AwaP plugin')
+            myworker.layerPrint.connect(self.showLayer)
+            myworker.layerPrintStyled.connect(self.showStyledLayer)
+            QgsApplication.taskManager().countActiveTasksChanged.connect(self.update_task_number_label)
+            QgsApplication.taskManager().allTasksFinished.connect(self.delete_task_number_label)
+            QgsApplication.taskManager().addTask(myworker)
+        except Exception as e:
+            self.log(str(e))
