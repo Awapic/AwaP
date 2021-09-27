@@ -33,6 +33,10 @@ Whether the blocks which are partly inside and partly outside of the area of int
 
 Figure 2: Examples of the urban blocks included in the AwaP calculation (dark red) when using different settings for blocks intersecting the study area boundary (black line).
 
+#### AwaP video tutorial:
+
+https://vimeo.com/elekpafka/awap
+
 #### Reference:
 Majic I. & Pafka E. (2019) [AwaP-IC - An Open-Source GIS Tool for Measuring Walkable Access](https://doi.org/10.3390/urbansci3020048). Urban Science 3(2): 48.
 
