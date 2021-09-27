@@ -35,9 +35,7 @@ Figure 2: Examples of the urban blocks included in the AwaP calculation (dark re
 
 #### AwaP video tutorial:
 
-https://vimeo.com/elekpafka/awap
-
-<iframe title="vimeo-player" src="https://player.vimeo.com/video/574850313?h=3b5511f68b" width="640" height="360" frameborder="0" allowfullscreen></iframe>
+[![AwaP (QGIS tutorial)](https://res.cloudinary.com/marcomontalbano/image/upload/v1632748584/video_to_markdown/images/vimeo--574850313-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://vimeo.com/574850313 "AwaP (QGIS tutorial)")
 
 #### Reference:
 Majic I. & Pafka E. (2019) [AwaP-IC - An Open-Source GIS Tool for Measuring Walkable Access](https://doi.org/10.3390/urbansci3020048). Urban Science 3(2): 48.
