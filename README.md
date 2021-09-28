@@ -33,7 +33,7 @@ Whether the blocks which are partly inside and partly outside of the area of int
 
 Figure 2: Examples of the urban blocks included in the AwaP calculation (dark red) when using different settings for blocks intersecting the study area boundary (black line).
 
-#### AwaP video tutorial:
+#### AwaP instructional video:
 
 [![AwaP (QGIS tutorial)](https://res.cloudinary.com/marcomontalbano/image/upload/v1632748584/video_to_markdown/images/vimeo--574850313-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://vimeo.com/574850313 "AwaP (QGIS tutorial)")
 
