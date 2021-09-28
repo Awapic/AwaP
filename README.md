@@ -1,5 +1,5 @@
 # AwaP 
-AwaP is part of AwaP-IC - a QGIS tool that calculates the Area-weighted average Perimeter (AwaP) and Interface Catchment (IC), two measures developed by Pafka & Dovey (2017), that combined, capture the capacities of urban morphologies to enable and attract pedestrian movement. While AwaP and IC should be considered together in the analysis of walkable access, in this 2.0.0 version of the AwaP-IC software the two measures are provided by distinct plugins.
+AwaP is part of AwaP-IC - a QGIS tool that calculates the Area-weighted average Perimeter (AwaP) and Interface Catchment (IC), two measures developed by Pafka & Dovey (2017), that combined, capture the capacities of urban morphologies to enable and attract pedestrian movement. While AwaP and IC should be considered together in the analysis of walkable access, in this 2.0.1 version of the AwaP-IC software the two measures are provided by distinct plugins.
 
 AwaP is a measure of urban permeability, that calculates the average perimeter of urban blocks within a study area, weighing the perimeter of each block by its area. This way the impact of a large block will be proportional with the share of the study area it occupies, and its effect as a major-barrier to movement is not lost in the average. The lower the AwaP, the easier is to walk through the urban fabric. An AwaP of 400m corresponds to a square block of 100x100m, often taken as the maximum block-length that still allows good permeability. 
 
@@ -32,6 +32,10 @@ Whether the blocks which are partly inside and partly outside of the area of int
 ![AwaP-frame](./figures/AwaP-frame.png)
 
 Figure 2: Examples of the urban blocks included in the AwaP calculation (dark red) when using different settings for blocks intersecting the study area boundary (black line).
+
+#### AwaP instructional video:
+
+[![AwaP (QGIS tutorial)](https://res.cloudinary.com/marcomontalbano/image/upload/v1632748584/video_to_markdown/images/vimeo--574850313-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://vimeo.com/574850313 "AwaP (QGIS tutorial)")
 
 #### Reference:
 Majic I. & Pafka E. (2019) [AwaP-IC - An Open-Source GIS Tool for Measuring Walkable Access](https://doi.org/10.3390/urbansci3020048). Urban Science 3(2): 48.

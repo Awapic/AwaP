@@ -10,11 +10,11 @@
 name=AwaP
 qgisMinimumVersion=3.0
 description= This plugin takes in outlines of urban blocks and the boundary of area of interest, and calculates area-weighted average parameter (AwaP)
-version=2.0.0
+version=2.0.1
 author=Ivan Majic
 email=imajicos@gmail.com
 
-about=This plugin calculates area-weighted average perimeter (AwaP) of urban blocks within the defined area. The tool removes dead-end streets up to a specified maximum street width. This method was first presented in Pafka E. and Dovey K. (2017), Permeability and interface catchment: measuring and mapping walkable access (https://www.tandfonline.com/doi/abs/10.1080/17549175.2016.1220413); and this plugin is presented in Majic I. and Pafka E. (2019), AwaP-IC - An Open-Source GIS Tool for Measuring Walkable Access (https://www.mdpi.com/2413-8851/3/2/48).
+about=This plugin calculates area-weighted average perimeter (AwaP) of urban blocks within the defined area. The tool removes dead-end streets up to a specified maximum street width.  This method was first presented in Pafka E. and Dovey K. (2017), Permeability and interface catchment: measuring and mapping walkable access (https://www.tandfonline.com/doi/abs/10.1080/17549175.2016.1220413); and this plugin is presented in Majic I. and Pafka E. (2019), AwaP-IC - An Open-Source GIS Tool for Measuring Walkable Access (https://www.mdpi.com/2413-8851/3/2/48). The video tutorial for AwaP is available online (https://vimeo.com/elekpafka/awap).
 
 tracker=https://github.com/Awapic/AwaP/issues
 repository=https://github.com/Awapic/AwaP
@@ -23,11 +23,9 @@ repository=https://github.com/Awapic/AwaP
 # Recommended items:
 
 # Uncomment the following line and add your changelog:
-changelog=2.0.0
-    - Added a "Multiple polygons" option for the boundary layer, calculates multiple AwaPs simultaneously
-    - Added a shortcut button to the Create Grid processing tool
-    - Added the optional custom styling for resulting layers
-    - Moved the AwaP worker to a thread that runs in the background, this should detach the running plugin from the main QGIS GUI
+changelog=2.0.1
+    - Added the AwaP tutorial video to the GitHub README.md
+    - Added a link to the AwaP tutorial video in the plugin description (about plugin section)
 
 # Tags are comma separated with spaces allowed
 tags=permeability, urban morphology, street network
