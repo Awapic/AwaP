@@ -10,7 +10,7 @@
 name=AwaP
 qgisMinimumVersion=3.0
 description= This plugin takes in outlines of urban blocks and the boundary of area of interest, and calculates area-weighted average parameter (AwaP)
-version=2.0.0
+version=2.0.1
 author=Ivan Majic
 email=imajicos@gmail.com
 
@@ -26,11 +26,6 @@ repository=https://github.com/Awapic/AwaP
 changelog=2.0.1
     - Added the AwaP tutorial video to the GitHub README.md
     - Added a link to the AwaP tutorial video in the plugin description (about plugin section)
-changelog=2.0.0
-    - Added a "Multiple polygons" option for the boundary layer, calculates multiple AwaPs simultaneously
-    - Added a shortcut button to the Create Grid processing tool
-    - Added the optional custom styling for resulting layers
-    - Moved the AwaP worker to a thread that runs in the background, this should detach the running plugin from the main QGIS GUI
 
 # Tags are comma separated with spaces allowed
 tags=permeability, urban morphology, street network
