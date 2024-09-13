@@ -94,7 +94,7 @@ class AwaP:
 
         # this is where i define that qgsmaplayercombobox should only
         # list line and polygon layers
-        vector_layers_filter = QgsMapLayerProxyModel.Filter(8 | 16)
+        vector_layers_filter = QgsMapLayerProxyModel.LineLayer | QgsMapLayerProxyModel.PolygonLayer
         self.dlg.mMapLayerComboBox.setFilters(vector_layers_filter)
         self.dlg.mMapLayerComboBox_2.setFilters(vector_layers_filter)
         self.dlg.checkBox_4.setCheckState(QtCore.Qt.Checked)
